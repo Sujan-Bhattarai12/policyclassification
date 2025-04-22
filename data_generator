@@ -1,0 +1,63 @@
+import pandas as pd
+import numpy as np
+import random
+import string
+from faker import Faker
+
+fake = Faker()
+
+# Generate random environmental policy texts
+def generate_policy_text(length=200):
+    topics = [
+        "climate change mitigation", "renewable energy incentives", "carbon emission reduction",
+        "water conservation policies", "biodiversity protection laws", "air quality regulations",
+        "environmental impact assessments", "energy efficiency mandates", "waste management rules"
+    ]
+    text = " ".join(random.choices(topics, k=length))
+    return text
+
+# Generate simulated dataset
+def simulate_dataset(n_samples=1000):
+    data = []
+    classifications = ['Energy Policy', 'Water Policy', 'Air Quality', 'Waste Management', 'Climate Policy']
+
+    for i in range(n_samples):
+        title = fake.sentence(nb_words=6)
+        raw_text = generate_policy_text(length=random.randint(100, 300))
+        cleaned_text = raw_text.lower().replace(',', '').replace('.', '')
+        classification = random.choice(classifications)
+        summary = fake.sentence(nb_words=20)
+        data.append([title, raw_text, cleaned_text, classification, summary])
+
+    df = pd.DataFrame(data, columns=['title', 'raw_text', 'cleaned_text', 'classification', 'summary'])
+    return df
+
+# Save dataset to CSV and SQLite
+def save_dataset(df, csv_path='simulated_policy_data.csv', db_path='policy_data_sim.db'):
+    df.to_csv(csv_path, index=False)
+
+    conn = sqlite3.connect(db_path)
+    df.to_sql('policies', conn, if_exists='replace', index=False)
+    conn.commit()
+    conn.close()
+
+# Visualize generated dataset
+def visualize_generated_data(df):
+    import matplotlib.pyplot as plt
+    df['classification'].value_counts().plot(kind='bar', title='Simulated Policy Classification Distribution')
+    plt.xlabel('Classification')
+    plt.ylabel('Frequency')
+    plt.show()
+
+# Main function to generate and save data
+def main():
+    print("Generating simulated dataset...")
+    df = simulate_dataset(n_samples=1000)
+    print("Saving dataset to CSV and SQLite DB...")
+    save_dataset(df)
+    print("Visualizing dataset distribution...")
+    visualize_generated_data(df)
+    print("Done!")
+
+if __name__ == "__main__":
+    main()

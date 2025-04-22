@@ -1,0 +1,124 @@
+import pandas as pd
+import numpy as np
+import sqlite3
+import nltk
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import LatentDirichletAllocation
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.preprocessing import LabelEncoder
+import matplotlib.pyplot as plt
+
+nltk.download('stopwords')
+
+# Load data from SQL database
+def load_data(db_name='policy_data.db'):
+    conn = sqlite3.connect(db_name)
+    df = pd.read_sql_query("SELECT * FROM policies", conn)
+    conn.close()
+    return df
+
+# Topic Modeling with LDA
+def topic_modeling(texts, n_topics=5):
+    tfidf_vectorizer = TfidfVectorizer(max_df=0.95, min_df=2, stop_words='english')
+    tfidf = tfidf_vectorizer.fit_transform(texts)
+
+    lda = LatentDirichletAllocation(n_components=n_topics, random_state=42)
+    lda.fit(tfidf)
+
+    terms = tfidf_vectorizer.get_feature_names_out()
+    for idx, topic in enumerate(lda.components_):
+        print(f"Topic {idx}: ")
+        print([terms[i] for i in topic.argsort()[-10:]])
+
+# Classification Modeling
+def classification_modeling(df):
+    # Assume 'classification' column as label
+    df = df.dropna(subset=['cleaned_text', 'classification'])
+    X = df['cleaned_text']
+    y = df['classification']
+
+    # Encode labels
+    le = LabelEncoder()
+    y_encoded = le.fit_transform(y)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=42)
+
+    # Define pipeline
+    pipeline = Pipeline([
+        ('tfidf', TfidfVectorizer(stop_words='english')),
+        ('clf', MultinomialNB())
+    ])
+
+    pipeline.fit(X_train, y_train)
+    y_pred = pipeline.predict(X_test)
+
+    print("Classification Report:")
+    print(classification_report(y_test, y_pred, target_names=le.classes_))
+    print("Confusion Matrix:")
+    print(confusion_matrix(y_test, y_pred))
+    print("Accuracy:", accuracy_score(y_test, y_pred))
+
+# Advanced Models Comparison
+def advanced_models(df):
+    df = df.dropna(subset=['cleaned_text', 'classification'])
+    X = df['cleaned_text']
+    y = df['classification']
+
+    le = LabelEncoder()
+    y_encoded = le.fit_transform(y)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=42)
+
+    models = {
+        'Logistic Regression': LogisticRegression(max_iter=1000),
+        'Random Forest': RandomForestClassifier(n_estimators=100),
+        'Support Vector Machine': SVC()
+    }
+
+    for name, model in models.items():
+        pipeline = Pipeline([
+            ('tfidf', TfidfVectorizer(stop_words='english')),
+            ('clf', model)
+        ])
+
+        pipeline.fit(X_train, y_train)
+        y_pred = pipeline.predict(X_test)
+
+        print(f"Model: {name}")
+        print("Accuracy:", accuracy_score(y_test, y_pred))
+        print("Classification Report:")
+        print(classification_report(y_test, y_pred, target_names=le.classes_))
+        print("-------------------------------------------------------")
+
+# Visualizing Data Distribution
+def visualize_data(df):
+    df['classification'].value_counts().plot(kind='bar')
+    plt.title('Policy Classification Distribution')
+    plt.xlabel('Classification')
+    plt.ylabel('Count')
+    plt.show()
+
+# Main Modeling Pipeline
+def main():
+    df = load_data()
+
+    print("Performing Topic Modeling...")
+    topic_modeling(df['cleaned_text'].tolist(), n_topics=5)
+
+    print("Running Basic Classification Model...")
+    classification_modeling(df)
+
+    print("Comparing Advanced Models...")
+    advanced_models(df)
+
+    print("Visualizing Data...")
+    visualize_data(df)
+
+if __name__ == "__main__":
+    main()
